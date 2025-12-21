@@ -1,60 +1,27 @@
 "use client";
 
-import * as React from "react";
-import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { toast } from "sonner";
-
-import { PageShell } from "@/components/common/PageShell";
-import { Protected } from "@/components/common/Protected";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
 import { dashboardService } from "@/lib/services/dashboard.service";
-import { authService } from "@/lib/services/auth.service";
-import { clearToken } from "@/lib/utils/storage";
 import { getApiErrorMessage } from "@/lib/api/errors";
 
 export default function DashboardPage() {
-  return (
-    <Protected>
-      <DashboardInner />
-    </Protected>
-  );
-}
-
-function DashboardInner() {
-  const router = useRouter();
-
   const dashboardQuery = useQuery({
     queryKey: ["dashboard", { limit: 10 }],
     queryFn: () => dashboardService.getDashboard(10),
   });
 
-  async function onLogout() {
-    try {
-      await authService.logout();
-    } catch (e: unknown) {
-      toast.error(getApiErrorMessage(e));
-    } finally {
-      clearToken();
-      toast.success("Logout");
-      router.replace("/login");
-    }
-  }
-
   const data = dashboardQuery.data;
 
   return (
-    <PageShell
-      title="Dashboard"
-      description="Ringkasan peserta & jadwal terdekat"
-      right={
-        <Button variant="outline" onClick={onLogout}>
-          Logout
-        </Button>
-      }
-    >
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold">Dashboard</h1>
+        <p className="text-sm text-muted-foreground">
+          Ringkasan peserta & jadwal terdekat
+        </p>
+      </div>
+
       {dashboardQuery.isLoading ? (
         <div className="text-sm text-muted-foreground">Loading dashboard...</div>
       ) : dashboardQuery.isError ? (
@@ -111,6 +78,6 @@ function DashboardInner() {
           </Card>
         </div>
       )}
-    </PageShell>
+    </div>
   );
 }

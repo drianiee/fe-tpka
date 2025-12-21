@@ -39,3 +39,24 @@ export type RegisterResponse = {
   user: User;
   token: string;
 };
+
+export type CompleteProfileRequest = {
+  id_type: "ktp" | "ktm" | "sim";
+  id_image: File;
+  birth_date: string; // YYYY-MM-DD
+  phone: string;
+};
+
+export type CompleteProfileResponse = {
+  message: string;
+  user: User;
+  token: string; // token api normal setelah complete
+};
+
+export type ResendVerifyRequest = {
+  email: string;
+};
+
+export type ResendVerifyResponse = {
+  message: string;
+};
