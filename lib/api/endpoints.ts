@@ -15,16 +15,11 @@ export const API_ENDPOINTS = {
   SCHEDULES: {
     BASE: "/api/schedules",
     DETAIL: (id: number | string) => `/api/schedules/${id}`,
-    PROVISION: (id: number | string) => `/api/schedules/${id}/provision`,
-    PARTICIPANTS_ADD: (scheduleId: number | string) =>
+    PARTICIPANTS: (scheduleId: number | string) =>
       `/api/schedules/${scheduleId}/participants`,
-    PARTICIPANTS_REMOVE: (scheduleId: number | string, userId: number | string) =>
+    PARTICIPANT_DELETE: (scheduleId: number | string, userId: number | string) =>
       `/api/schedules/${scheduleId}/participants/${userId}`,
-
-    // peserta
-    PARTICIPANT_BASE: "/api/participant/schedules",
-    PARTICIPANT_REGISTER: (scheduleId: number | string) =>
-      `/api/participant/schedules/${scheduleId}/register`,
+    PROVISION: (scheduleId: number | string) => `/api/schedules/${scheduleId}/provision`,
   },
 
   PACKAGES: {

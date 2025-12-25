@@ -73,11 +73,6 @@ export default function CompleteProfilePage() {
   }, [token, status, router]);
 
   async function onSubmit(values: FormValues) {
-    if (!token) {
-      toast.error("Token tidak valid.");
-      return;
-    }
-
     setLoading(true);
     try {
       const res = await authService.completeProfile(token, {
@@ -87,7 +82,7 @@ export default function CompleteProfilePage() {
         id_image: values.id_image,
       });
 
-      // token normal untuk FE setelah complete-profile
+      // ✅ simpan token normal untuk FE
       setToken(res.token);
 
       toast.success(res.message || "Profil berhasil dilengkapi");
@@ -110,7 +105,7 @@ export default function CompleteProfilePage() {
   return (
     <AuthCard
       title="Complete Profile"
-      description={email ? `Lengkapi profil untuk akun: ${email}` : "Lengkapi profil Anda"}
+      description={email ? `Lengkapi profil untuk: ${email}` : "Lengkapi profil Anda"}
     >
       <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
         <div className="space-y-2">

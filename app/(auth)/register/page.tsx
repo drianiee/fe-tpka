@@ -13,7 +13,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { authService } from "@/lib/services/auth.service";
-import { setToken } from "@/lib/utils/storage";
 import { getApiErrorMessage } from "@/lib/api/errors";
 
 const schema = z
@@ -21,7 +20,9 @@ const schema = z
     name: z.string().min(2, "Nama minimal 2 karakter"),
     email: z.string().email("Email tidak valid"),
     password: z.string().min(6, "Password minimal 6 karakter"),
-    password_confirmation: z.string().min(6, "Konfirmasi password minimal 6 karakter"),
+    password_confirmation: z
+      .string()
+      .min(6, "Konfirmasi password minimal 6 karakter"),
   })
   .refine((v) => v.password === v.password_confirmation, {
     message: "Password dan konfirmasi tidak sama",
@@ -42,17 +43,20 @@ export default function RegisterPage() {
       password: "",
       password_confirmation: "",
     },
+    mode: "onSubmit",
   });
 
   async function onSubmit(values: FormValues) {
     setLoading(true);
     try {
       const res = await authService.register(values);
-      setToken(res.token);
 
+      // ✅ Jangan simpan token dari register (biar verifikasi dulu)
       toast.success(res.message || "Registrasi berhasil. Cek email untuk verifikasi.");
-      router.replace("/dashboard");
-    } catch (e) {
+
+      // ✅ Redirect ke halaman check email
+      router.replace(`/register/check-email?email=${encodeURIComponent(values.email)}`);
+    } catch (e: unknown) {
       toast.error(getApiErrorMessage(e));
     } finally {
       setLoading(false);
@@ -66,23 +70,35 @@ export default function RegisterPage() {
   } = form;
 
   return (
-    <AuthCard title="Register" description="Buat akun peserta (akan diminta verifikasi email)">
+    <AuthCard
+      title="Register"
+      description="Buat akun peserta (wajib verifikasi email)"
+    >
       <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
         <div className="space-y-2">
           <Label htmlFor="name">Nama</Label>
           <Input id="name" placeholder="Nama lengkap" {...register("name")} />
-          {errors.name ? <p className="text-sm text-destructive">{errors.name.message}</p> : null}
+          {errors.name ? (
+            <p className="text-sm text-destructive">{errors.name.message}</p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input id="email" placeholder="you@mail.com" {...register("email")} />
-          {errors.email ? <p className="text-sm text-destructive">{errors.email.message}</p> : null}
+          {errors.email ? (
+            <p className="text-sm text-destructive">{errors.email.message}</p>
+          ) : null}
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="password">Password</Label>
-          <Input id="password" type="password" placeholder="Minimal 6 karakter" {...register("password")} />
+          <Input
+            id="password"
+            type="password"
+            placeholder="Minimal 6 karakter"
+            {...register("password")}
+          />
           {errors.password ? (
             <p className="text-sm text-destructive">{errors.password.message}</p>
           ) : null}
@@ -97,7 +113,9 @@ export default function RegisterPage() {
             {...register("password_confirmation")}
           />
           {errors.password_confirmation ? (
-            <p className="text-sm text-destructive">{errors.password_confirmation.message}</p>
+            <p className="text-sm text-destructive">
+              {errors.password_confirmation.message}
+            </p>
           ) : null}
         </div>
 

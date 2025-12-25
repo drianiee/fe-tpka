@@ -1,73 +1,43 @@
-import type { AxiosError } from "axios";
+import axios, { AxiosError } from "axios";
 
-type LaravelValidationErrors = Record<string, string[] | string>;
-
-type LaravelErrorShape = {
-  message?: unknown;
-  errors?: unknown;
+type ApiErrorShape = {
+  message?: string;
+  error?: string;
+  errors?: Record<string, string[]>;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function isLaravelValidationErrors(value: unknown): value is LaravelValidationErrors {
-  if (!isRecord(value)) return false;
+function parseApiError(data: unknown): string | null {
+  if (!isRecord(data)) return null;
 
-  // minimal check: key -> (string | string[])
-  for (const k of Object.keys(value)) {
-    const v = value[k];
-    const ok =
-      typeof v === "string" ||
-      (Array.isArray(v) && v.every((x) => typeof x === "string"));
-    if (!ok) return false;
-  }
-  return true;
-}
+  const message = typeof data.message === "string" ? data.message : null;
+  const error = typeof data.error === "string" ? data.error : null;
 
-function isLaravelErrorShape(value: unknown): value is LaravelErrorShape {
-  return isRecord(value) && ("message" in value || "errors" in value);
-}
-
-/**
- * Laravel umum:
- * - { message: "..." }
- * - { message: "...", errors: { field: ["..."] } }
- * - { errors: { field: ["..."] } }
- */
-export function getApiErrorMessage(err: unknown): string {
-  const fallback = "Terjadi kesalahan. Coba lagi.";
-
-  const axiosErr = err as AxiosError<unknown>;
-  const data = axiosErr?.response?.data;
-
-  if (data === undefined || data === null) {
-    return axiosErr?.message || fallback;
-  }
-
-  if (typeof data === "string") return data;
-
-  if (isLaravelErrorShape(data)) {
-    const msg = typeof data.message === "string" ? data.message : null;
-
-    if (isLaravelValidationErrors(data.errors)) {
-      const first = firstValidationError(data.errors);
-      if (msg && first) return `${msg} — ${first}`;
-      if (msg) return msg;
-      if (first) return first;
+  // Laravel validation errors: { errors: { field: ["msg"] } }
+  const errors = data.errors;
+  if (isRecord(errors)) {
+    const firstKey = Object.keys(errors)[0];
+    if (firstKey) {
+      const fieldVal = errors[firstKey];
+      if (Array.isArray(fieldVal) && typeof fieldVal[0] === "string") {
+        return fieldVal[0];
+      }
     }
-
-    if (msg) return msg;
   }
 
-  return fallback;
+  return message ?? error;
 }
 
-function firstValidationError(errors: LaravelValidationErrors): string | null {
-  for (const key of Object.keys(errors)) {
-    const v = errors[key];
-    if (Array.isArray(v) && v.length > 0) return v[0] ?? null;
-    if (typeof v === "string" && v.length > 0) return v;
+export function getApiErrorMessage(err: unknown): string {
+  if (axios.isAxiosError(err)) {
+    const axErr = err as AxiosError<unknown>;
+    const parsed = parseApiError(axErr.response?.data);
+    return parsed ?? axErr.message ?? "Terjadi kesalahan";
   }
-  return null;
+
+  if (err instanceof Error) return err.message;
+  return "Terjadi kesalahan";
 }
