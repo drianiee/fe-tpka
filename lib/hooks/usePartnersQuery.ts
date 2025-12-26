@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
 import { partnersService } from "@/lib/services/partners.service";
-import type { Partner } from "@/lib/types/partners";
+import type { PartnerListItem } from "@/lib/types/partners";
 
 function useDebouncedValue<T>(value: T, delay = 250) {
   const [v, setV] = React.useState(value);
@@ -30,7 +30,7 @@ export function usePartnersQuery(opts: {
     staleTime: 30_000,
   });
 
-  const partners: Partner[] = React.useMemo(() => {
+  const partners: PartnerListItem[] = React.useMemo(() => {
     const raw = qPartners.data ?? [];
     return raw.filter((p) => p.is_active !== false);
   }, [qPartners.data]);

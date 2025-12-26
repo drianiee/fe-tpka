@@ -15,7 +15,7 @@ export const schedulesService = {
     return http
       .get(API_ENDPOINTS.SCHEDULES.BASE)
       .then((r) => r.data);
-  },
+  }, // TODO belum bikin limit dan pagination
 
   create(payload: CreateScheduleRequest): Promise<CreateScheduleResponse> {
     return http

@@ -14,7 +14,7 @@ import { API_ENDPOINTS } from "@/lib/api/endpoints";
 import { getApiErrorMessage } from "@/lib/api/errors";
 import { formatRupiah, hhmm } from "@/lib/utils/format";
 import { formatDateTime } from "@/lib/utils/datetime";
-import { TesStatus } from "@/lib/utils/status";
+import { StatusBadge } from "@/lib/utils/status";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,16 +41,6 @@ const addSchema = z.object({
 });
 
 type AddForm = z.infer<typeof addSchema>;
-
-/* ================= UI HELPERS ================= */
-
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <Badge variant={TesStatus(status)}>
-      {status}
-    </Badge>
-  );
-}
 
 /* ================= PAGE ================= */
 

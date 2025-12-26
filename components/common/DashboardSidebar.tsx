@@ -20,6 +20,7 @@ function navByRole(role: UserRole): NavItem[] {
     return [
       { label: "Dashboard", href: "/dashboard" },
       { label: "Schedules", href: "/dashboard/admin/schedules" },
+      { label: "Mitra", href: "/dashboard/admin/mitra" },
       { label: "Packages", href: "/dashboard/packages" },
       { label: "Users", href: "/dashboard/users" },
     ];
