@@ -1,5 +1,3 @@
-// lib/types/schedules.ts
-
 export type ScheduleStatus =
   | "Tes Belum Dimulai"
   | "Tes Akan Segera Dimulai"
@@ -7,24 +5,35 @@ export type ScheduleStatus =
   | "Tes Telah Selesai"
   | string;
 
+/* ================= PACKAGES ================= */
+
 export type QuestionPackageLite = {
+  id: number;
+  name: string;
+  is_active?: boolean;
+};
+
+/* ================= PARTNER ================= */
+
+export type PartnerLite = {
   id: number;
   name: string;
 };
 
+/* ================= LIST ITEM ================= */
+
 export type ScheduleListItem = {
   id: number;
-  date: string; // "YYYY-MM-DD"
-  start_time: string; // "HH:mm:ss"
-  end_time: string; // "HH:mm:ss"
-  price: string; // "150000.00"
+  date: string;
+  start_time: string;
+  end_time: string;
+  price: string;
 
-  // di list kamu ada ini, tapi di detail contoh terbaru kamu tidak ada.
-  // jadi bikin optional supaya ga konflik.
-  is_partner?: boolean;
+  is_partner: boolean;
+  partner_id: number | null;
+  partner: PartnerLite | null;
 
   capacity: number;
-  package_id?: number | null;
 
   moodle_course_id?: number | null;
   moodle_quiz_id?: number | null;
@@ -36,29 +45,35 @@ export type ScheduleListItem = {
 
   quiz_url: string | null;
   status: ScheduleStatus;
-  package: QuestionPackageLite | null;
+  current_participants: number;
+
+  // ✅ INI YANG PENTING
+  packages: QuestionPackageLite[];
 };
+
+/* ================= DETAIL ================= */
 
 export type ScheduleParticipant = {
   id: number;
   name: string;
   email: string;
-  registered_at: string; // ISO string
+  registered_at: string;
 };
 
 export type ScheduleDetail = ScheduleListItem & {
-  current_participants: number;
   participants: ScheduleParticipant[];
 };
 
+/* ================= REQUEST / RESPONSE ================= */
+
 export type CreateScheduleRequest = {
-  date: string; // "YYYY-MM-DD"
-  start_time: string; // "HH:mm" (sesuai request kamu)
+  date: string;
+  start_time: string;
   price: number;
   is_partner: boolean;
   capacity: number;
-  package_id?: number;
-  package_ids?: number[];
+  partner_id?: number;
+  package_id?: number | number[];
 };
 
 export type CreateScheduleResponse = {
@@ -82,7 +97,7 @@ export type AddParticipantResponse = {
     capacity: number;
     current_participants: number;
     status: ScheduleStatus;
-    package: QuestionPackageLite | null;
+    packages: QuestionPackageLite[];
     users: Array<{ id: number; name: string; email: string }>;
   };
   quiz_url: string | null;

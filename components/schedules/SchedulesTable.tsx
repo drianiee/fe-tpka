@@ -11,10 +11,18 @@ import { formatRupiah, hhmm } from "@/lib/utils/format";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+/* ================= STATUS BADGE ================= */
 
 function StatusBadge({ status }: { status: string }) {
-  // sederhana aja
   const variant =
     status === "Tes Sedang Berlangsung"
       ? "destructive"
@@ -22,8 +30,14 @@ function StatusBadge({ status }: { status: string }) {
       ? "secondary"
       : "default";
 
-  return <Badge variant={variant as "default" | "secondary" | "destructive"}>{status}</Badge>;
+  return (
+    <Badge variant={variant as "default" | "secondary" | "destructive"}>
+      {status}
+    </Badge>
+  );
 }
+
+/* ================= TABLE ================= */
 
 export function SchedulesTable() {
   const q = useQuery({
@@ -33,8 +47,13 @@ export function SchedulesTable() {
 
   const rows: ScheduleListItem[] = q.data ?? [];
 
-  if (q.isLoading) return <p className="text-sm text-muted-foreground">Loading...</p>;
-  if (q.isError) return <p className="text-sm text-destructive">Gagal load schedules</p>;
+  if (q.isLoading) {
+    return <p className="text-sm text-muted-foreground">Loading...</p>;
+  }
+
+  if (q.isError) {
+    return <p className="text-sm text-destructive">Gagal load schedules</p>;
+  }
 
   return (
     <div className="rounded-md border">
@@ -56,7 +75,10 @@ export function SchedulesTable() {
         <TableBody>
           {rows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={9} className="text-center text-sm text-muted-foreground">
+              <TableCell
+                colSpan={9}
+                className="text-center text-sm text-muted-foreground"
+              >
                 Tidak ada jadwal
               </TableCell>
             </TableRow>
@@ -64,18 +86,41 @@ export function SchedulesTable() {
             rows.map((it, idx) => (
               <TableRow key={it.id}>
                 <TableCell>{idx + 1}</TableCell>
+
                 <TableCell>{it.date}</TableCell>
+
                 <TableCell>{hhmm(it.start_time)}</TableCell>
+
                 <TableCell>{formatRupiah(it.price)}</TableCell>
-                <TableCell>{it.is_partner ? "Ya" : "-"}</TableCell>
+
+                {/* ✅ PARTNER: nama atau "-" */}
+                <TableCell>{it.partner?.name ?? "-"}</TableCell>
+
                 <TableCell>{it.capacity}</TableCell>
-                <TableCell>{it.package?.name ?? "-"}</TableCell>
+
+                <TableCell>
+                  {it.packages.length === 0 ? (
+                    "-"
+                  ) : (
+                    <div className="flex flex-wrap gap-1">
+                      {it.packages.map((pkg) => (
+                        <Badge key={pkg.id} variant="outline">
+                          {pkg.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </TableCell>
+
                 <TableCell>
                   <StatusBadge status={it.status} />
                 </TableCell>
+
                 <TableCell className="text-right">
                   <Button asChild size="sm" variant="outline">
-                    <Link href={`/dashboard/admin/schedules/${it.id}`}>Detail</Link>
+                    <Link href={`/dashboard/admin/schedules/${it.id}`}>
+                      Detail
+                    </Link>
                   </Button>
                 </TableCell>
               </TableRow>

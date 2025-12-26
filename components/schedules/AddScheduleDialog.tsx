@@ -3,13 +3,16 @@
 import * as React from "react";
 import { toast } from "sonner";
 import { z } from "zod";
-import { useForm, Controller } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { schedulesService } from "@/lib/services/schedules.service";
-import { getApiErrorMessage } from "@/lib/api/errors";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
+import { getApiErrorMessage } from "@/lib/api/errors";
+
+import { usePartnersQuery } from "@/lib/hooks/usePartnersQuery";
+import { useQuestionPackagesQuery } from "@/lib/hooks/useQuestionPackagesQuery";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -29,72 +32,81 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-/**
- * ✅ Tidak pakai preprocess/coerce
- * Number parsing dilakukan oleh RHF via valueAsNumber
- */
+import { SearchableCombobox } from "@/components/common/SearchableCombobox";
+
+/* ================= VALIDATION ================= */
+
 const schema = z.object({
-  date: z.string().min(1, "Tanggal wajib"),
-  start_time: z.string().min(1, "Jam mulai wajib"),
-  price: z.number().finite("Harga tidak valid").min(0, "Harga tidak valid"),
-  is_partner: z.enum(["true", "false"]),
-  capacity: z
-    .number()
-    .finite("Kapasitas tidak valid")
-    .int("Kapasitas harus bilangan bulat")
-    .min(1, "Kapasitas minimal 1"),
-  package_id: z
-    .number()
-    .finite("Paket tidak valid")
-    .int("Paket harus bilangan bulat")
-    .positive("Paket wajib diisi"),
+  date: z.string().min(1),
+  start_time: z.string().min(1),
+  price: z.number().min(0),
+
+  is_partner: z.boolean(),
+  partner_id: z.number().optional(),
+  capacity: z.number().min(1),
+
+  package_ids: z.array(z.number()).optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
+
+/* ================= COMPONENT ================= */
 
 export function AddScheduleDialog() {
   const [open, setOpen] = React.useState(false);
   const qc = useQueryClient();
 
-  // ✅ samakan juga 3 generic di useForm
-  const form = useForm<FormValues, unknown, FormValues>({
-    resolver: zodResolver<FormValues, unknown, FormValues>(schema),
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema),
     defaultValues: {
-      date: "",
-      start_time: "",
       price: 150000,
-      is_partner: "true",
+      is_partner: false,
       capacity: 50,
-      package_id: 1,
+      package_ids: [],
     },
-    mode: "onSubmit",
   });
 
+  const isPartner = useWatch({ control: form.control, name: "is_partner" });
+
+  /* ===== UI state ===== */
+  const [partnerOpen, setPartnerOpen] = React.useState(false);
+  const [partnerQuery, setPartnerQuery] = React.useState("");
+
+  const [pkgOpen, setPkgOpen] = React.useState(false);
+  const [pkgQuery, setPkgQuery] = React.useState("");
+
+  /* ===== data ===== */
+  const { qPartners, partners } = usePartnersQuery({
+    enabled: open && isPartner,
+    q: partnerQuery,
+  });
+
+  const { qPkgs, packages } = useQuestionPackagesQuery({
+    enabled: open && isPartner,
+    q: pkgQuery,
+  });
+
+  /* ===== mutation ===== */
   const createMut = useMutation({
-    mutationFn: (values: FormValues) =>
+    mutationFn: (v: FormValues) =>
       schedulesService.create({
-        date: values.date,
-        start_time: values.start_time, // "HH:mm"
-        price: values.price,
-        is_partner: values.is_partner === "true",
-        capacity: values.capacity,
-        package_id: values.package_id,
+        date: v.date,
+        start_time: v.start_time,
+        price: v.price,
+        capacity: v.capacity,
+        is_partner: v.is_partner,
+        partner_id: v.is_partner ? v.partner_id : undefined,
+        package_id: v.is_partner ? v.package_ids : undefined,
       }),
+
     onSuccess: (res) => {
-      toast.success(res.message ?? "Jadwal berhasil dibuat");
+      toast.success(res.message);
       qc.invalidateQueries({ queryKey: [API_ENDPOINTS.SCHEDULES.BASE] });
       setOpen(false);
       form.reset();
     },
     onError: (e) => toast.error(getApiErrorMessage(e)),
   });
-
-  const {
-    register,
-    handleSubmit,
-    control,
-    formState: { errors },
-  } = form;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -109,94 +121,108 @@ export function AddScheduleDialog() {
 
         <form
           className="space-y-4"
-          onSubmit={handleSubmit((values) => createMut.mutate(values))}
+          onSubmit={form.handleSubmit((v) => createMut.mutate(v))}
         >
-          <div className="space-y-2">
-            <Label htmlFor="date">Tanggal</Label>
-            <Input id="date" type="date" {...register("date")} />
-            {errors.date?.message ? (
-              <p className="text-sm text-destructive">{errors.date.message}</p>
-            ) : null}
+          <div>
+            <Label>Tanggal</Label>
+            <Input type="date" {...form.register("date")} />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="start_time">Jam Mulai</Label>
-            <Input id="start_time" type="time" {...register("start_time")} />
-            {errors.start_time?.message ? (
-              <p className="text-sm text-destructive">
-                {errors.start_time.message}
-              </p>
-            ) : null}
+          <div>
+            <Label>Jam Mulai</Label>
+            <Input type="time" {...form.register("start_time")} />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="price">Harga</Label>
+          <div>
+            <Label>Harga</Label>
             <Input
-              id="price"
               type="number"
-              inputMode="numeric"
-              {...register("price", { valueAsNumber: true })}
+              {...form.register("price", { valueAsNumber: true })}
             />
-            {errors.price?.message ? (
-              <p className="text-sm text-destructive">{errors.price.message}</p>
-            ) : null}
           </div>
 
-          <div className="space-y-2">
-            <Label>Partner</Label>
+          <div>
+            <Label>Mitra?</Label>
             <Controller
-              control={control}
+              control={form.control}
               name="is_partner"
               render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select
+                  value={field.value ? "yes" : "no"}
+                  onValueChange={(v) => field.onChange(v === "yes")}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="Partner?" />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="true">Ya</SelectItem>
-                    <SelectItem value="false">-</SelectItem>
+                    <SelectItem value="no">Tidak</SelectItem>
+                    <SelectItem value="yes">Ya</SelectItem>
                   </SelectContent>
                 </Select>
               )}
             />
-            {errors.is_partner?.message ? (
-              <p className="text-sm text-destructive">
-                {errors.is_partner.message}
-              </p>
-            ) : null}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="capacity">Kapasitas</Label>
+          {isPartner ? (
+            <>
+              <Controller
+                control={form.control}
+                name="partner_id"
+                render={({ field }) => (
+                  <SearchableCombobox
+                    value={field.value ?? null}
+                    onChange={field.onChange}
+                    options={partners.map((p) => ({
+                      id: p.id,
+                      label: p.name,
+                    }))}
+                    open={partnerOpen}
+                    onOpenChange={setPartnerOpen}
+                    search={partnerQuery}
+                    onSearchChange={setPartnerQuery}
+                    loading={qPartners.isLoading}
+                    placeholder="Pilih partner"
+                  />
+                )}
+              />
+
+              <Controller
+                control={form.control}
+                name="package_ids"
+                render={({ field }) => (
+                  <SearchableCombobox
+                    multiple
+                    value={field.value ?? []}
+                    onChange={field.onChange}
+                    options={packages.map((p) => ({
+                      id: p.id,
+                      label: p.name,
+                    }))}
+                    open={pkgOpen}
+                    onOpenChange={setPkgOpen}
+                    search={pkgQuery}
+                    onSearchChange={setPkgQuery}
+                    loading={qPkgs.isLoading}
+                    placeholder="Pilih paket soal"
+                  />
+                )}
+              />
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Non-mitra: paket soal otomatis memakai semua yang aktif.
+            </p>
+          )}
+
+          <div>
+            <Label>Kapasitas</Label>
             <Input
-              id="capacity"
               type="number"
-              inputMode="numeric"
-              {...register("capacity", { valueAsNumber: true })}
+              {...form.register("capacity", { valueAsNumber: true })}
             />
-            {errors.capacity?.message ? (
-              <p className="text-sm text-destructive">
-                {errors.capacity.message}
-              </p>
-            ) : null}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="package_id">Paket Soal (package_id)</Label>
-            <Input
-              id="package_id"
-              type="number"
-              inputMode="numeric"
-              {...register("package_id", { valueAsNumber: true })}
-            />
-            {errors.package_id?.message ? (
-              <p className="text-sm text-destructive">
-                {errors.package_id.message}
-              </p>
-            ) : null}
-          </div>
-
-          <Button className="w-full" type="submit" disabled={createMut.isPending}>
+          <Button className="w-full" disabled={createMut.isPending}>
             {createMut.isPending ? "Menyimpan..." : "Simpan"}
           </Button>
         </form>

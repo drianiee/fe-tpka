@@ -21,10 +21,13 @@ export const API_ENDPOINTS = {
       `/api/schedules/${scheduleId}/participants/${userId}`,
     PROVISION: (scheduleId: number | string) => `/api/schedules/${scheduleId}/provision`,
   },
-
-  PACKAGES: {
+  
+  PARTNERS: {
+    BASE: "/api/partners",
+  },  
+  
+  QUESTION_PACKAGES: {
     BASE: "/api/question-packages",
-    DETAIL: (id: number | string) => `/api/question-packages/${id}`,
   },
 
   PAYMENTS: {

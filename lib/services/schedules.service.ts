@@ -1,5 +1,3 @@
-// lib/services/schedules.service.ts
-
 import { http } from "@/lib/api/http";
 import { API_ENDPOINTS } from "@/lib/api/endpoints";
 import type {
@@ -13,46 +11,39 @@ import type {
 } from "@/lib/types/schedules";
 
 export const schedulesService = {
-  async list(): Promise<ScheduleListItem[]> {
-    const { data } = await http.get<ScheduleListItem[]>(
-      API_ENDPOINTS.SCHEDULES.BASE
-    );
-    return data;
+  list(): Promise<ScheduleListItem[]> {
+    return http
+      .get(API_ENDPOINTS.SCHEDULES.BASE)
+      .then((r) => r.data);
   },
 
-  async create(payload: CreateScheduleRequest): Promise<CreateScheduleResponse> {
-    const { data } = await http.post<CreateScheduleResponse>(
-      API_ENDPOINTS.SCHEDULES.BASE,
-      payload
-    );
-    return data;
+  create(payload: CreateScheduleRequest): Promise<CreateScheduleResponse> {
+    return http
+      .post(API_ENDPOINTS.SCHEDULES.BASE, payload)
+      .then((r) => r.data);
   },
 
-  async detail(id: number | string): Promise<ScheduleDetail> {
-    const { data } = await http.get<ScheduleDetail>(
-      API_ENDPOINTS.SCHEDULES.DETAIL(id)
-    );
-    return data;
+  detail(id: number | string): Promise<ScheduleDetail> {
+    return http
+      .get(API_ENDPOINTS.SCHEDULES.DETAIL(id))
+      .then((r) => r.data);
   },
 
-  async addParticipant(
+  addParticipant(
     scheduleId: number | string,
     payload: AddParticipantRequest
   ): Promise<AddParticipantResponse> {
-    const { data } = await http.post<AddParticipantResponse>(
-      API_ENDPOINTS.SCHEDULES.PARTICIPANTS(scheduleId),
-      payload
-    );
-    return data;
+    return http
+      .post(API_ENDPOINTS.SCHEDULES.PARTICIPANTS(scheduleId), payload)
+      .then((r) => r.data);
   },
 
-  async removeParticipant(
+  removeParticipant(
     scheduleId: number | string,
     userId: number | string
   ): Promise<RemoveParticipantResponse> {
-    const { data } = await http.delete<RemoveParticipantResponse>(
-      API_ENDPOINTS.SCHEDULES.PARTICIPANT_DELETE(scheduleId, userId)
-    );
-    return data;
+    return http
+      .delete(API_ENDPOINTS.SCHEDULES.PARTICIPANT_DELETE(scheduleId, userId))
+      .then((r) => r.data);
   },
 };
