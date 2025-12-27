@@ -4,7 +4,7 @@ import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { z } from "zod";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -30,17 +30,23 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 /* ================= VALIDATION ================= */
 
-const addSchema = z.object({
-  user_id: z
-    .number()
-    .int("User ID harus bilangan bulat")
-    .positive("User ID harus > 0"),
+const importSchema = z.object({
+  file: z
+    .instanceof(File, { message: "File wajib di-upload" })
+    .refine((f) => /\.(xlsx|xls)$/i.test(f.name), "File harus .xlsx / .xls"),
 });
 
-type AddForm = z.infer<typeof addSchema>;
+type ImportForm = z.infer<typeof importSchema>;
 
 /* ================= PAGE ================= */
 
@@ -50,6 +56,7 @@ export default function AdminScheduleDetailPage() {
   const qc = useQueryClient();
 
   const scheduleId = Number(id);
+  const [importOpen, setImportOpen] = React.useState(false);
 
   /* ===== DETAIL ===== */
   const detailQuery = useQuery({
@@ -58,42 +65,39 @@ export default function AdminScheduleDetailPage() {
     enabled: Number.isFinite(scheduleId),
   });
 
-  /* ===== FORM ===== */
-  const form = useForm<AddForm>({
-    resolver: zodResolver(addSchema),
+  /* ===== FORM: IMPORT XLSX ===== */
+  const importForm = useForm<ImportForm>({
+    resolver: zodResolver(importSchema),
     defaultValues: {
-      user_id: undefined,
+      file: undefined,
     },
-  });
-
-  /* ===== ADD PARTICIPANT ===== */
-  const addMut = useMutation({
-    mutationFn: (v: AddForm) =>
-      schedulesService.addParticipant(scheduleId, { user_id: v.user_id }),
-
-    onSuccess: (res) => {
-      toast.success(res.message ?? "Peserta ditambahkan");
-      qc.invalidateQueries({
-        queryKey: [API_ENDPOINTS.SCHEDULES.DETAIL(scheduleId)],
-      });
-      form.reset();
-    },
-
-    onError: (e) => toast.error(getApiErrorMessage(e)),
+    mode: "onSubmit",
   });
 
   /* ===== REMOVE PARTICIPANT ===== */
   const delMut = useMutation({
     mutationFn: (userId: number) =>
       schedulesService.removeParticipant(scheduleId, userId),
-
     onSuccess: (res) => {
       toast.success(res.message ?? "Peserta dihapus");
       qc.invalidateQueries({
         queryKey: [API_ENDPOINTS.SCHEDULES.DETAIL(scheduleId)],
       });
     },
+    onError: (e) => toast.error(getApiErrorMessage(e)),
+  });
 
+  /* ===== IMPORT PARTNER XLSX ===== */
+  const importMut = useMutation({
+    mutationFn: (file: File) => schedulesService.partnerImport(scheduleId, file),
+    onSuccess: (res) => {
+      toast.success(res.message ?? "Import peserta mitra berhasil");
+      qc.invalidateQueries({
+        queryKey: [API_ENDPOINTS.SCHEDULES.DETAIL(scheduleId)],
+      });
+      importForm.reset({ file: undefined });
+      setImportOpen(false);
+    },
     onError: (e) => toast.error(getApiErrorMessage(e)),
   });
 
@@ -109,6 +113,7 @@ export default function AdminScheduleDetailPage() {
   const d: ScheduleDetail = detailQuery.data;
   const participants = d.participants ?? [];
   const packages = d.packages ?? [];
+  const isPartnerSchedule = Boolean(d.partner?.id);
 
   return (
     <div className="space-y-4">
@@ -166,29 +171,80 @@ export default function AdminScheduleDetailPage() {
         </div>
       </Card>
 
-      {/* ===== PARTICIPANTS ===== */}
+      {/* ===== PARTICIPANTS + IMPORT MODAL ===== */}
       <Card className="p-4 space-y-4">
-        <form
-          className="flex gap-3 items-end"
-          onSubmit={form.handleSubmit((v) => addMut.mutate(v))}
-        >
-          <div className="space-y-2">
-            <Label>User ID</Label>
-            <Input
-              type="number"
-              {...form.register("user_id", { valueAsNumber: true })}
-            />
-            {form.formState.errors.user_id && (
-              <p className="text-sm text-destructive">
-                {form.formState.errors.user_id.message}
-              </p>
-            )}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <div className="text-sm font-semibold">Peserta</div>
+            <div className="text-sm text-muted-foreground">
+              Total: {participants.length}
+            </div>
           </div>
 
-          <Button type="submit" disabled={addMut.isPending}>
-            Add Participant
-          </Button>
-        </form>
+          {isPartnerSchedule && (
+            <Dialog open={importOpen} onOpenChange={setImportOpen}>
+              <DialogTrigger asChild>
+                <Button variant="secondary">Import Peserta Mitra (XLSX)</Button>
+              </DialogTrigger>
+
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Import Peserta Mitra</DialogTitle>
+                </DialogHeader>
+
+                <form
+                  className="space-y-4"
+                  onSubmit={importForm.handleSubmit((v) =>
+                    importMut.mutate(v.file)
+                  )}
+                >
+                  <div className="space-y-2">
+                    <Label>File XLSX</Label>
+
+                    <Controller
+                      control={importForm.control}
+                      name="file"
+                      render={({ field }) => (
+                        <Input
+                          type="file"
+                          accept=".xlsx,.xls"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) field.onChange(file);
+                          }}
+                        />
+                      )}
+                    />
+
+                    {importForm.formState.errors.file && (
+                      <p className="text-sm text-destructive">
+                        {importForm.formState.errors.file.message}
+                      </p>
+                    )}
+
+                    <p className="text-xs text-muted-foreground">
+                      Upload file .xlsx/.xls sesuai format backend.
+                    </p>
+                  </div>
+
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setImportOpen(false)}
+                      disabled={importMut.isPending}
+                    >
+                      Batal
+                    </Button>
+                    <Button type="submit" disabled={importMut.isPending}>
+                      {importMut.isPending ? "Importing..." : "Import"}
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
 
         <Separator />
 

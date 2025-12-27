@@ -19,13 +19,18 @@ export const API_ENDPOINTS = {
       `/api/schedules/${scheduleId}/participants`,
     PARTICIPANT_DELETE: (scheduleId: number | string, userId: number | string) =>
       `/api/schedules/${scheduleId}/participants/${userId}`,
-    PROVISION: (scheduleId: number | string) => `/api/schedules/${scheduleId}/provision`,
+    PROVISION: (scheduleId: number | string) =>
+      `/api/schedules/${scheduleId}/provision`,
+
+    // ✅ import peserta mitra (xlsx)
+    PARTNER_IMPORT: (scheduleId: number | string) =>
+      `/api/schedules/${scheduleId}/partner/import`,
   },
-  
+
   PARTNERS: {
     BASE: "/api/partners",
-  },  
-  
+  },
+
   QUESTION_PACKAGES: {
     BASE: "/api/question-packages",
   },
@@ -33,7 +38,6 @@ export const API_ENDPOINTS = {
   PAYMENTS: {
     MIDTRANS_CREATE: "/api/payments/midtrans/create",
     MIDTRANS_CALLBACK: "/api/payments/midtrans/callback",
-    // peserta bayar by schedule
     PAY_BY_SCHEDULE: (scheduleId: number | string) =>
       `/api/participant/schedules/${scheduleId}/pay`,
   },
