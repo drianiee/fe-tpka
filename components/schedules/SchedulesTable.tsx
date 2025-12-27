@@ -129,11 +129,11 @@ export function SchedulesTable() {
             value={qText}
             onChange={(e) => setQText(e.target.value)}
             placeholder="Cari mitra (partner)"
-            className="lg:w-[260px]"
+            className="lg:w-65"
           />
 
           <select
-            className="h-9 rounded-md border bg-background px-3 text-sm lg:w-[220px]"
+            className="h-9 rounded-md border bg-background px-3 text-sm lg:w-65"
             value={status}
             onChange={(e) => setStatus(e.target.value)}
           >

@@ -35,7 +35,7 @@ export function DateRangePicker({
         <Button
           type="button"
           variant="outline"
-          className={cn("w-full justify-start text-left font-normal md:w-[260px]", className)}
+          className={cn("w-full justify-start text-left font-normal md:w-65", className)}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
           <span className={cn(!value?.from && "text-muted-foreground")}>{label}</span>
