@@ -1,11 +1,13 @@
+// lib/hooks/usePartnersQuery.ts
 "use client"
 
 import * as React from "react"
-import { keepPreviousData, useQuery } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 
-import { API_ENDPOINTS } from "@/lib/api/endpoints"
 import { partnersService } from "@/lib/services/partners.service"
 import type { PartnerListItem } from "@/lib/types/partners"
+import type { PaginatedResponse } from "@/lib/types/pagination"
+import { API_ENDPOINTS } from "@/lib/api/endpoints"
 
 function useDebouncedValue<T>(value: T, delay = 250) {
   const [v, setV] = React.useState(value)
@@ -19,30 +21,31 @@ function useDebouncedValue<T>(value: T, delay = 250) {
 export function usePartnersQuery(opts: {
   enabled: boolean
   q: string
-  limit?: number
+  per_page?: number
+  page?: number
 }) {
   const debouncedQ = useDebouncedValue(opts.q, 300)
 
   const params = React.useMemo(
     () => ({
-      q: debouncedQ.trim() ? debouncedQ.trim() : undefined,
-      limit: opts.limit ?? 50,
+      q: debouncedQ.trim() || undefined,
+      per_page: opts.per_page ?? 50,
+      page: opts.page ?? 1,
     }),
-    [debouncedQ, opts.limit]
+    [debouncedQ, opts.per_page, opts.page]
   )
 
-  const qPartners = useQuery<PartnerListItem[]>({
+  const qPartners = useQuery<PaginatedResponse<PartnerListItem>>({
     queryKey: [API_ENDPOINTS.PARTNERS.BASE, params],
     queryFn: () => partnersService.list(params),
     enabled: opts.enabled,
     staleTime: 30_000,
-    placeholderData: keepPreviousData,
   })
 
-  const partners = React.useMemo(
-    () => (qPartners.data ?? []).filter((p) => p.is_active !== false),
-    [qPartners.data]
-  )
+  const partners = React.useMemo<PartnerListItem[]>(() => {
+    const raw = qPartners.data?.data ?? []
+    return raw.filter((p: PartnerListItem) => p.is_active !== false)
+  }, [qPartners.data])
 
   return { qPartners, partners }
 }

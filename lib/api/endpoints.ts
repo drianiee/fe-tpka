@@ -17,8 +17,10 @@ export const API_ENDPOINTS = {
     DETAIL: (id: number | string) => `/api/schedules/${id}`,
     PARTICIPANTS: (scheduleId: number | string) =>
       `/api/schedules/${scheduleId}/participants`,
-    PARTICIPANT_DELETE: (scheduleId: number | string, userId: number | string) =>
-      `/api/schedules/${scheduleId}/participants/${userId}`,
+    PARTICIPANT_DELETE: (
+      scheduleId: number | string,
+      userId: number | string
+    ) => `/api/schedules/${scheduleId}/participants/${userId}`,
     PROVISION: (scheduleId: number | string) =>
       `/api/schedules/${scheduleId}/provision`,
 
@@ -33,6 +35,8 @@ export const API_ENDPOINTS = {
 
   QUESTION_PACKAGES: {
     BASE: "/api/question-packages",
+    DETAIL: (id: number | string) => `/api/question-packages/${id}`,
+    STATUS: (id: number | string) => `/api/question-packages/${id}/status`,
   },
 
   PAYMENTS: {

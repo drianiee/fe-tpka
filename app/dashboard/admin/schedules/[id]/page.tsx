@@ -1,27 +1,26 @@
-"use client";
+"use client"
 
-import * as React from "react";
-import { useParams, useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { z } from "zod";
-import { Controller, useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import * as React from "react"
+import { useParams, useRouter } from "next/navigation"
+import { toast } from "sonner"
+import { z } from "zod"
+import { Controller, useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
-import { schedulesService } from "@/lib/services/schedules.service";
-import type { ScheduleDetail } from "@/lib/types/schedules";
-import { API_ENDPOINTS } from "@/lib/api/endpoints";
-import { getApiErrorMessage } from "@/lib/api/errors";
-import { formatRupiah, hhmm } from "@/lib/utils/format";
-import { formatDateTime } from "@/lib/utils/datetime";
-import { StatusBadge } from "@/lib/utils/status";
+import { schedulesService, type PartnerImportResponse } from "@/lib/services/schedules.service"
+import type { ScheduleDetail } from "@/lib/types/schedules"
+import { API_ENDPOINTS } from "@/lib/api/endpoints"
+import { getApiErrorMessage } from "@/lib/api/errors"
+import { formatRupiah, hhmm } from "@/lib/utils/format"
+import { StatusBadge } from "@/lib/utils/status"
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Table,
   TableBody,
@@ -29,95 +28,85 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "@/components/ui/table"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-
-/* ================= VALIDATION ================= */
+} from "@/components/ui/dialog"
 
 const importSchema = z.object({
   file: z
     .instanceof(File, { message: "File wajib di-upload" })
     .refine((f) => /\.(xlsx|xls)$/i.test(f.name), "File harus .xlsx / .xls"),
-});
+})
 
-type ImportForm = z.infer<typeof importSchema>;
+type ImportForm = z.infer<typeof importSchema>
 
-/* ================= PAGE ================= */
+function importSummaryText(res: PartnerImportResponse) {
+  const s = res.summary
+  if (!s) return ""
+  const parts: string[] = []
+  if (typeof s.attached_to_schedule === "number") parts.push(`Terpasang: ${s.attached_to_schedule}`)
+  if (typeof s.created_users === "number") parts.push(`User dibuat: ${s.created_users}`)
+  if (typeof s.sent_invitations === "number") parts.push(`Invitation: ${s.sent_invitations}`)
+  if (typeof s.skipped_rows === "number") parts.push(`Skip: ${s.skipped_rows}`)
+  return parts.join(" • ")
+}
 
 export default function AdminScheduleDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  const router = useRouter();
-  const qc = useQueryClient();
+  const { id } = useParams<{ id: string }>()
+  const router = useRouter()
+  const qc = useQueryClient()
 
-  const scheduleId = Number(id);
-  const [importOpen, setImportOpen] = React.useState(false);
+  const scheduleId = Number(id)
+  const [importOpen, setImportOpen] = React.useState(false)
 
-  /* ===== DETAIL ===== */
   const detailQuery = useQuery({
     queryKey: [API_ENDPOINTS.SCHEDULES.DETAIL(scheduleId)],
     queryFn: () => schedulesService.detail(scheduleId),
     enabled: Number.isFinite(scheduleId),
-  });
+  })
 
-  /* ===== FORM: IMPORT XLSX ===== */
   const importForm = useForm<ImportForm>({
     resolver: zodResolver(importSchema),
-    defaultValues: {
-      file: undefined,
-    },
+    defaultValues: {},
     mode: "onSubmit",
-  });
+  })
 
-  /* ===== REMOVE PARTICIPANT ===== */
   const delMut = useMutation({
-    mutationFn: (userId: number) =>
-      schedulesService.removeParticipant(scheduleId, userId),
+    mutationFn: (userId: number) => schedulesService.removeParticipant(scheduleId, userId),
     onSuccess: (res) => {
-      toast.success(res.message ?? "Peserta dihapus");
-      qc.invalidateQueries({
-        queryKey: [API_ENDPOINTS.SCHEDULES.DETAIL(scheduleId)],
-      });
+      toast.success(res.message ?? "Peserta dihapus")
+      qc.invalidateQueries({ queryKey: [API_ENDPOINTS.SCHEDULES.DETAIL(scheduleId)] })
     },
     onError: (e) => toast.error(getApiErrorMessage(e)),
-  });
+  })
 
-  /* ===== IMPORT PARTNER XLSX ===== */
   const importMut = useMutation({
     mutationFn: (file: File) => schedulesService.partnerImport(scheduleId, file),
     onSuccess: (res) => {
-      toast.success(res.message ?? "Import peserta mitra berhasil");
-      qc.invalidateQueries({
-        queryKey: [API_ENDPOINTS.SCHEDULES.DETAIL(scheduleId)],
-      });
-      importForm.reset({ file: undefined });
-      setImportOpen(false);
+      const sum = importSummaryText(res)
+      toast.success(sum ? `${res.message} (${sum})` : res.message ?? "Import berhasil")
+      qc.invalidateQueries({ queryKey: [API_ENDPOINTS.SCHEDULES.DETAIL(scheduleId)] })
+      importForm.reset()
+      setImportOpen(false)
     },
     onError: (e) => toast.error(getApiErrorMessage(e)),
-  });
+  })
 
-  /* ===== STATE HANDLING ===== */
-  if (detailQuery.isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading...</p>;
-  }
+  if (detailQuery.isLoading) return <p className="text-sm text-muted-foreground">Loading...</p>
+  if (detailQuery.isError || !detailQuery.data) return <p className="text-sm text-destructive">Gagal load schedule</p>
 
-  if (detailQuery.isError || !detailQuery.data) {
-    return <p className="text-sm text-destructive">Gagal load schedule</p>;
-  }
-
-  const d: ScheduleDetail = detailQuery.data;
-  const participants = d.participants ?? [];
-  const packages = d.packages ?? [];
-  const isPartnerSchedule = Boolean(d.partner?.id);
+  const d: ScheduleDetail = detailQuery.data
+  const participants = d.participants ?? []
+  const packages = d.packages ?? []
+  const isPartnerSchedule = Boolean(d.partner?.id)
 
   return (
     <div className="space-y-4">
-      {/* ===== HEADER ===== */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-xl font-semibold">Schedule #{d.id}</h1>
@@ -130,7 +119,6 @@ export default function AdminScheduleDetailPage() {
         </Button>
       </div>
 
-      {/* ===== INFO CARD ===== */}
       <Card className="p-4 space-y-3">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
           <div>
@@ -169,19 +157,29 @@ export default function AdminScheduleDetailPage() {
             </div>
           )}
         </div>
+
+        <div className="flex flex-wrap gap-2">
+          {d.moodle_course_id ? <Badge variant="secondary">Course: {d.moodle_course_id}</Badge> : null}
+          {d.moodle_quiz_id ? <Badge variant="secondary">Quiz: {d.moodle_quiz_id}</Badge> : null}
+          {d.moodle_quiz_cmid ? <Badge variant="secondary">CMID: {d.moodle_quiz_cmid}</Badge> : null}
+          {d.quiz_url ? (
+            <Button asChild size="sm" variant="outline">
+              <a href={d.quiz_url} target="_blank" rel="noreferrer">
+                Buka Quiz
+              </a>
+            </Button>
+          ) : null}
+        </div>
       </Card>
 
-      {/* ===== PARTICIPANTS + IMPORT MODAL ===== */}
       <Card className="p-4 space-y-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <div className="text-sm font-semibold">Peserta</div>
-            <div className="text-sm text-muted-foreground">
-              Total: {participants.length}
-            </div>
+            <div className="text-sm text-muted-foreground">Total: {participants.length}</div>
           </div>
 
-          {isPartnerSchedule && (
+          {isPartnerSchedule ? (
             <Dialog open={importOpen} onOpenChange={setImportOpen}>
               <DialogTrigger asChild>
                 <Button variant="secondary">Import Peserta Mitra (XLSX)</Button>
@@ -194,9 +192,7 @@ export default function AdminScheduleDetailPage() {
 
                 <form
                   className="space-y-4"
-                  onSubmit={importForm.handleSubmit((v) =>
-                    importMut.mutate(v.file)
-                  )}
+                  onSubmit={importForm.handleSubmit((v) => importMut.mutate(v.file))}
                 >
                   <div className="space-y-2">
                     <Label>File XLSX</Label>
@@ -209,22 +205,18 @@ export default function AdminScheduleDetailPage() {
                           type="file"
                           accept=".xlsx,.xls"
                           onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) field.onChange(file);
+                            const file = e.target.files?.[0]
+                            if (file) field.onChange(file)
                           }}
                         />
                       )}
                     />
 
-                    {importForm.formState.errors.file && (
+                    {importForm.formState.errors.file ? (
                       <p className="text-sm text-destructive">
                         {importForm.formState.errors.file.message}
                       </p>
-                    )}
-
-                    <p className="text-xs text-muted-foreground">
-                      Upload file .xlsx/.xls sesuai format backend.
-                    </p>
+                    ) : null}
                   </div>
 
                   <div className="flex justify-end gap-2">
@@ -243,7 +235,7 @@ export default function AdminScheduleDetailPage() {
                 </form>
               </DialogContent>
             </Dialog>
-          )}
+          ) : null}
         </div>
 
         <Separator />
@@ -255,7 +247,7 @@ export default function AdminScheduleDetailPage() {
               <TableHead>ID</TableHead>
               <TableHead>Nama</TableHead>
               <TableHead>Email</TableHead>
-              <TableHead>Registered</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
@@ -274,7 +266,7 @@ export default function AdminScheduleDetailPage() {
                   <TableCell>{p.id}</TableCell>
                   <TableCell>{p.name}</TableCell>
                   <TableCell>{p.email}</TableCell>
-                  <TableCell>{formatDateTime(p.registered_at)}</TableCell>
+                  <TableCell className="capitalize">{p.status}</TableCell>
                   <TableCell className="text-right">
                     <Button
                       size="sm"
@@ -292,5 +284,5 @@ export default function AdminScheduleDetailPage() {
         </Table>
       </Card>
     </div>
-  );
+  )
 }

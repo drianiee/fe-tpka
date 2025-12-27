@@ -1,28 +1,89 @@
-import { http } from "@/lib/api/http"
-import { API_ENDPOINTS } from "@/lib/api/endpoints"
-import type { QuestionPackage } from "@/lib/types/question-packages"
-import type { PaginatedResponse } from "@/lib/types/pagination"
+// lib/services/questionPackages.service.ts
+import { http } from "@/lib/api/http";
+import { API_ENDPOINTS } from "@/lib/api/endpoints";
+import type { PaginatedResponse } from "@/lib/types/pagination";
+import type {
+  QuestionPackage,
+  ListQuestionPackagesParams,
+  CreateQuestionPackageRequest,
+  CreateQuestionPackageResponse,
+  UpdateQuestionPackageStatusRequest,
+  UpdateQuestionPackageStatusResponse,
+  DeleteQuestionPackageResponse,
+} from "@/lib/types/question-packages";
 
-export type ListQuestionPackagesParams = {
-  q?: string
-  limit?: number
-  per_page?: number
-  page?: number
-  is_active?: boolean
-}
+function toFormData(payload: CreateQuestionPackageRequest): FormData {
+  const fd = new FormData();
 
-function pickPackagesArray(raw: unknown): QuestionPackage[] {
-  if (Array.isArray(raw)) return raw as QuestionPackage[]
-  if (raw && typeof raw === "object") {
-    const r = raw as Partial<PaginatedResponse<QuestionPackage>>
-    if (Array.isArray(r.data)) return r.data
+  fd.append("name", payload.name);
+
+  if (payload.is_active !== undefined) {
+    fd.append("is_active", String(payload.is_active ? 1 : 0));
   }
-  return []
+
+  const fields: Array<keyof CreateQuestionPackageRequest> = [
+    "verbal_category_id",
+    "verbal_num_questions",
+    "verbal_duration_minutes",
+    "quantitative_category_id",
+    "quantitative_num_questions",
+    "quantitative_duration_minutes",
+    "logic_category_id",
+    "logic_num_questions",
+    "logic_duration_minutes",
+    "spatial_category_id",
+    "spatial_num_questions",
+    "spatial_duration_minutes",
+  ];
+
+  for (const key of fields) {
+    const v = payload[key];
+    if (typeof v === "number") fd.append(String(key), String(v));
+  }
+
+  if (payload.file) fd.append("file", payload.file);
+
+  return fd;
 }
 
 export const questionPackagesService = {
-  async list(params?: ListQuestionPackagesParams): Promise<QuestionPackage[]> {
-    const { data } = await http.get<unknown>(API_ENDPOINTS.QUESTION_PACKAGES.BASE, { params })
-    return pickPackagesArray(data)
+  list(
+    params?: ListQuestionPackagesParams
+  ): Promise<PaginatedResponse<QuestionPackage>> {
+    return http
+      .get(API_ENDPOINTS.QUESTION_PACKAGES.BASE, { params })
+      .then((r) => r.data as PaginatedResponse<QuestionPackage>);
   },
-}
+
+  detail(id: number | string): Promise<QuestionPackage> {
+    return http
+      .get(API_ENDPOINTS.QUESTION_PACKAGES.DETAIL(id))
+      .then((r) => r.data as QuestionPackage);
+  },
+
+  create(
+    payload: CreateQuestionPackageRequest
+  ): Promise<CreateQuestionPackageResponse> {
+    const fd = toFormData(payload);
+    return http
+      .post(API_ENDPOINTS.QUESTION_PACKAGES.BASE, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+      .then((r) => r.data as CreateQuestionPackageResponse);
+  },
+
+  updateStatus(
+    id: number | string,
+    payload: UpdateQuestionPackageStatusRequest
+  ): Promise<UpdateQuestionPackageStatusResponse> {
+    return http
+      .patch(API_ENDPOINTS.QUESTION_PACKAGES.STATUS(id), payload)
+      .then((r) => r.data as UpdateQuestionPackageStatusResponse);
+  },
+
+  destroy(id: number | string): Promise<DeleteQuestionPackageResponse> {
+    return http
+      .delete(API_ENDPOINTS.QUESTION_PACKAGES.DETAIL(id))
+      .then((r) => r.data as DeleteQuestionPackageResponse);
+  },
+};

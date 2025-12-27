@@ -8,8 +8,8 @@ import type {
   RemoveParticipantResponse,
   ScheduleDetail,
   ScheduleListItem,
-  PaginatedResponse,
 } from "@/lib/types/schedules"
+import type { PaginatedResponse } from "@/lib/types/pagination"
 
 export type ListSchedulesParams = {
   q?: string
@@ -34,12 +34,26 @@ export type ExportSchedulesResponse<T = ScheduleListItem> = {
   data?: T[]
 }
 
+export type PartnerImportSummary = {
+  created_users: number
+  attached_to_schedule: number
+  sent_invitations: number
+  skipped_rows: number
+}
+
+export type PartnerImportResponse = {
+  message: string
+  summary?: PartnerImportSummary
+}
+
 export const schedulesService = {
   list(params?: ListSchedulesParams): Promise<PaginatedResponse<ScheduleListItem>> {
     return http.get(API_ENDPOINTS.SCHEDULES.BASE, { params }).then((r) => r.data)
   },
 
-  exportExcel(params?: Omit<ListSchedulesParams, "per_page" | "page">): Promise<ExportSchedulesResponse> {
+  exportExcel(
+    params?: Omit<ListSchedulesParams, "per_page" | "page">
+  ): Promise<ExportSchedulesResponse> {
     return http
       .get(API_ENDPOINTS.SCHEDULES.BASE, {
         params: { ...(params ?? {}), print: 1 },
@@ -70,6 +84,20 @@ export const schedulesService = {
   ): Promise<RemoveParticipantResponse> {
     return http
       .delete(API_ENDPOINTS.SCHEDULES.PARTICIPANT_DELETE(scheduleId, userId))
+      .then((r) => r.data)
+  },
+
+  partnerImport(
+    scheduleId: number | string,
+    file: File
+  ): Promise<PartnerImportResponse> {
+    const fd = new FormData()
+    fd.append("file", file)
+
+    return http
+      .post(API_ENDPOINTS.SCHEDULES.PARTNER_IMPORT(scheduleId), fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
       .then((r) => r.data)
   },
 }
