@@ -13,36 +13,97 @@ import { authService } from "@/lib/services/auth.service";
 import { clearToken } from "@/lib/utils/storage";
 import { getApiErrorMessage } from "@/lib/api/errors";
 
-type NavItem = { label: string; href: string };
+type NavItem = {
+  key: string;
+  label: string;
+  href?: string;
+  children?: { label: string; href: string }[];
+  defaultOpen?: boolean;
+};
 
 function navByRole(role: UserRole): NavItem[] {
   if (role === "administrator") {
     return [
-      { label: "Dashboard", href: "/dashboard" },
-      { label: "Schedules", href: "/dashboard/admin/schedules" },
-      { label: "Mitra", href: "/dashboard/admin/mitra" },
-      { label: "Packages", href: "/dashboard/admin/question-packages" },
-      { label: "Users", href: "/dashboard/users" },
+      { key: "dashboard", label: "Dashboard", href: "/dashboard" },
+      { key: "schedules", label: "Schedules", href: "/dashboard/admin/schedules" },
+      { key: "mitra", label: "Mitra", href: "/dashboard/admin/mitra" },
+      { key: "packages", label: "Packages", href: "/dashboard/admin/question-packages" },
+      {
+        key: "arsip",
+        label: "Data arsip",
+        defaultOpen: true,
+        children: [
+          { label: "Operator", href: "/dashboard/admin/operators" },
+          { label: "Peserta", href: "/dashboard/admin/peserta" },
+        ],
+      },
     ];
   }
+
   if (role === "operator") {
     return [
-      { label: "Dashboard", href: "/dashboard" },
-      { label: "Schedules", href: "/dashboard/schedules" },
-      { label: "Packages", href: "/dashboard/packages" },
+      { key: "dashboard", label: "Dashboard", href: "/dashboard" },
+      { key: "schedules", label: "Schedules", href: "/dashboard/schedules" },
+      { key: "packages", label: "Packages", href: "/dashboard/packages" },
     ];
   }
+
   return [
-    { label: "Dashboard", href: "/dashboard" },
-    { label: "Jadwal Tes", href: "/dashboard/my-schedules" },
-    { label: "Pembayaran", href: "/dashboard/payments" },
+    { key: "dashboard", label: "Dashboard", href: "/dashboard" },
+    { key: "my-schedules", label: "Jadwal Tes", href: "/dashboard/my-schedules" },
+    { key: "payments", label: "Pembayaran", href: "/dashboard/payments" },
   ];
+}
+
+function isActivePath(pathname: string, href?: string) {
+  if (!href) return false;
+  return pathname === href || pathname.startsWith(href + "/");
+}
+
+function computeInitialOpen(nav: NavItem[], pathname: string) {
+  const acc: Record<string, boolean> = {};
+  for (const item of nav) {
+    const anyChildActive =
+      (item.children?.length ?? 0) > 0 &&
+      item.children!.some((c) => isActivePath(pathname, c.href));
+
+    acc[item.key] = Boolean(item.defaultOpen) || Boolean(anyChildActive);
+  }
+  return acc;
 }
 
 export function DashboardSidebar({ user }: { user: User }) {
   const pathname = usePathname();
   const router = useRouter();
-  const nav = navByRole(user.role);
+
+  // ✅ nav distabilkan, jadi bukan array baru tiap render
+  const nav = React.useMemo(() => navByRole(user.role), [user.role]);
+
+  // ✅ state init sekali (lazy init) biar gak ada loop
+  const [openSections, setOpenSections] = React.useState<Record<string, boolean>>(() =>
+    computeInitialOpen(nav, pathname)
+  );
+
+  // ✅ kalau route berubah dan masuk ke child: buka section terkait
+  // (hanya update state kalau memang ada perubahan)
+  React.useEffect(() => {
+    setOpenSections((prev) => {
+      let changed = false;
+      const next = { ...prev };
+
+      for (const item of nav) {
+        if (!item.children?.length) continue;
+
+        const anyChildActive = item.children.some((c) => isActivePath(pathname, c.href));
+        if (anyChildActive && next[item.key] !== true) {
+          next[item.key] = true;
+          changed = true;
+        }
+      }
+
+      return changed ? next : prev; // ✅ penting: kalau gak berubah, jangan set
+    });
+  }, [pathname, nav]);
 
   async function onLogout() {
     try {
@@ -54,6 +115,10 @@ export function DashboardSidebar({ user }: { user: User }) {
       toast.success("Logout");
       router.replace("/login");
     }
+  }
+
+  function toggleSection(key: string) {
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
   return (
@@ -68,20 +133,70 @@ export function DashboardSidebar({ user }: { user: User }) {
 
         <nav className="space-y-1">
           {nav.map((item) => {
-            const active = pathname === item.href;
+            const hasChildren = (item.children?.length ?? 0) > 0;
+            const anyChildActive =
+              hasChildren && item.children!.some((c) => isActivePath(pathname, c.href));
+
+            const active = isActivePath(pathname, item.href) || Boolean(anyChildActive);
+
+            if (!hasChildren) {
+              return (
+                <Link key={item.key} href={item.href ?? "#"}>
+                  <div
+                    className={[
+                      "rounded-md px-3 py-2 text-sm",
+                      active ? "bg-muted font-medium" : "hover:bg-muted/60",
+                    ].join(" ")}
+                  >
+                    {item.label}
+                  </div>
+                </Link>
+              );
+            }
+
+            const open = Boolean(openSections[item.key]);
+
             return (
-              <Link key={item.href} href={item.href}>
-                <div
+              <div key={item.key} className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => toggleSection(item.key)}
                   className={[
-                    "rounded-md px-3 py-2 text-sm",
-                    active
-                      ? "bg-muted font-medium"
-                      : "hover:bg-muted/60",
+                    "w-full flex items-center justify-between rounded-md px-3 py-2 text-sm text-left",
+                    active ? "bg-muted font-medium" : "hover:bg-muted/60",
                   ].join(" ")}
                 >
-                  {item.label}
-                </div>
-              </Link>
+                  <span>{item.label}</span>
+                  <span
+                    className={[
+                      "text-xs text-muted-foreground transition-transform",
+                      open ? "rotate-90" : "rotate-0",
+                    ].join(" ")}
+                  >
+                    ▶
+                  </span>
+                </button>
+
+                {open && (
+                  <div className="ml-3 border-l pl-3 space-y-1">
+                    {item.children!.map((child) => {
+                      const childActive = isActivePath(pathname, child.href);
+                      return (
+                        <Link key={child.href} href={child.href}>
+                          <div
+                            className={[
+                              "rounded-md px-3 py-2 text-sm",
+                              childActive ? "bg-muted font-medium" : "hover:bg-muted/60",
+                            ].join(" ")}
+                          >
+                            {child.label}
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
         </nav>

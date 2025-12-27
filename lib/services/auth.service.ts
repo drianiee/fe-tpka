@@ -58,8 +58,12 @@ export class AuthService {
     return res.data;
   }
 
+  // ✅ POST /api/auth/email/resend
   async resendVerify(payload: ResendVerifyRequest): Promise<ResendVerifyResponse> {
-    const res = await api.post<ResendVerifyResponse>(API_ENDPOINTS.AUTH.RESEND_VERIFY, payload);
+    const res = await api.post<ResendVerifyResponse>(
+      API_ENDPOINTS.AUTH.RESEND_VERIFY,
+      payload
+    );
     return res.data;
   }
 }

@@ -45,4 +45,16 @@ export const API_ENDPOINTS = {
     PAY_BY_SCHEDULE: (scheduleId: number | string) =>
       `/api/participant/schedules/${scheduleId}/pay`,
   },
+
+  ADMIN: {
+    OPERATORS: "/api/admin/operators",
+    OPERATOR_DETAIL: (id: number | string) => `/api/admin/operators/${id}`,
+    OPERATOR_STATUS: (id: number | string) =>
+      `/api/admin/operators/${id}/status`,
+  },
+
+  PARTICIPANTS: {
+    BASE: "/api/participants",
+    DETAIL: (id: number | string) => `/api/participants/${id}`,
+  },
 } as const;
